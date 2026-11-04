@@ -19,6 +19,7 @@
 #include <cstddef>
 #include <string>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp/version.h>
 
 namespace sensor_snapshot
 {
@@ -30,6 +31,16 @@ struct NodeSettings
   rclcpp::QoS subscription_qos{1};
   rclcpp::QoS service_qos{rclcpp::ServicesQoS()};
 };
+
+/// Humble accepts an rmw profile; newer LTS releases prefer the rclcpp QoS object.
+inline const auto & service_qos_argument(const rclcpp::QoS & qos)
+{
+#if RCLCPP_VERSION_MAJOR < 28
+  return qos.get_rmw_qos_profile();
+#else
+  return qos;
+#endif
+}
 
 NodeSettings declare_settings(rclcpp::Node & node, const std::string & default_topic);
 

@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.16)
 project(sensor_snapshot)
 
 find_package(ament_cmake REQUIRED)
@@ -37,8 +37,13 @@ target_include_directories(${PROJECT_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
-ament_target_dependencies(${PROJECT_NAME}
-  rclcpp rclcpp_components rcl_interfaces sensor_msgs builtin_interfaces sensor_snapshot_interfaces
+target_link_libraries(${PROJECT_NAME} PUBLIC
+  rclcpp::rclcpp
+  rclcpp_components::component
+  ${rcl_interfaces_TARGETS}
+  ${sensor_msgs_TARGETS}
+  ${builtin_interfaces_TARGETS}
+  ${sensor_snapshot_interfaces_TARGETS}
 )
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
@@ -51,7 +56,6 @@ install(TARGETS ${PROJECT_NAME} EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 install(DIRECTORY include/ DESTINATION include)
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
-install(FILES README.md DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)

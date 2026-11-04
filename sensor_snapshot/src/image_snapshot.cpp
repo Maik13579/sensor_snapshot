@@ -42,7 +42,7 @@ ImageSnapshot::ImageSnapshot(const rclcpp::NodeOptions & options)
     subscription_->get_topic_name(),
     [this](const std::shared_ptr<Service::Request> request,
     const std::shared_ptr<Service::Response> response) {get_image(request, response);},
-    settings.service_qos, service_group_);
+    service_qos_argument(settings.service_qos), service_group_);
   RCLCPP_INFO(
     get_logger(), "Caching %s; snapshots at %s", subscription_->get_topic_name(),
     service_->get_service_name());
