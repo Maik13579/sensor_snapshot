@@ -14,21 +14,30 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    continue-on-error: true
-
     container:
       image: ros:${{ matrix.rosdistro }}-ros-base
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           path: src/sensor_snapshot
 
+      - name: Prepare workspace
+        run: |
+          mkdir -p /root/ros2_ws
+          ln -s "$GITHUB_WORKSPACE/src" /root/ros2_ws/src
+
       - name: Install dependencies
-        run: rosdep update --include-eol-distros && apt-get update && rosdep install --from-path . -i -y --rosdistro ${{ matrix.rosdistro }}
+        run: rosdep update --include-eol-distros && apt-get update && rosdep install --from-paths /root/ros2_ws/src -riy --rosdistro ${{ matrix.rosdistro }}
 
       - name: Build tests
-        run: . /opt/ros/${{ matrix.rosdistro }}/setup.sh && colcon build --event-handlers console_cohesion+
+        working-directory: /root/ros2_ws
+        run: . /opt/ros/${{ matrix.rosdistro }}/setup.sh && colcon build --base-paths /root/ros2_ws/src --event-handlers console_cohesion+
 
       - name: Run tests
-        run: . /opt/ros/${{ matrix.rosdistro }}/setup.sh && colcon test --event-handlers console_cohesion+ && colcon test-result --verbose
+        working-directory: /root/ros2_ws
+        run: . /opt/ros/${{ matrix.rosdistro }}/setup.sh && . install/setup.sh && colcon test --base-paths /root/ros2_ws/src --event-handlers console_cohesion+ && colcon test-result --verbose
+
+      - name: Check installed CLI entry point
+        working-directory: /root/ros2_ws
+        run: . install/setup.sh && ros2 sensor_snapshot --help

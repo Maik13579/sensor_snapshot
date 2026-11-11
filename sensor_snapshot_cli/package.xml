@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>sensor_snapshot_cli</name>
+  <version>0.1.0</version>
+  <description>ROS 2 CLI for discovering, inspecting, exporting and previewing sensor snapshots.</description>
+  <maintainer email="maik.knof@gmx.de">Maik Knof</maintainer>
+  <license>Apache-2.0</license>
+  <build_depend>python3-setuptools</build_depend>
+  <build_depend>python3-dev</build_depend>
+  <build_depend>pkg-config</build_depend>
+  <build_depend>libpcl-all-dev</build_depend>
+  <exec_depend>libpcl-io</exec_depend>
+  <exec_depend>libpcl-common</exec_depend>
+  <exec_depend>python3-setuptools</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>ros2cli</exec_depend>
+  <exec_depend>rosidl_runtime_py</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>sensor_snapshot_interfaces</exec_depend>
+  <test_depend>python3-pytest</test_depend>
+  <test_depend>std_srvs</test_depend>
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
