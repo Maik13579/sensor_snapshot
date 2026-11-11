@@ -37,6 +37,7 @@ def _load_components(context):
     for argument, plugin in (
         ('image_topic', 'sensor_snapshot::ImageSnapshot'),
         ('cloud_topic', 'sensor_snapshot::PointCloudSnapshot'),
+        ('imu_topic', 'sensor_snapshot::ImuSnapshot'),
     ):
         topic = LaunchConfiguration(argument).perform(context).strip()
         if not topic:
@@ -80,6 +81,8 @@ def generate_launch_description():
             'Image input topic; empty disables the image component')),
         DeclareLaunchArgument('cloud_topic', default_value='', description=(
             'Cloud input topic; empty disables the cloud component')),
+        DeclareLaunchArgument('imu_topic', default_value='', description=(
+            'IMU input topic; empty disables the IMU component')),
         DeclareLaunchArgument('reliability', default_value='best_effort', description=(
             'Input reliability: best_effort or reliable')),
         DeclareLaunchArgument('history_size', default_value='1', description=(

@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>sensor_snapshot</name>
-  <version>0.1.0</version>
-  <description>C++ components for caching sensor messages and serving filtered snapshots on demand.</description>
+  <version>0.2.0</version>
+  <description>C++ components for caching images, point clouds and IMU data and serving snapshots on demand.</description>
   <maintainer email="maik.knof@gmx.de">Maik Knof</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>

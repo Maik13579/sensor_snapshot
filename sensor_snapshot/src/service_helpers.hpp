@@ -20,12 +20,25 @@
 #include <exception>
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/imu.hpp>
 #include <sensor_snapshot_interfaces/msg/snapshot_status.hpp>
 #include "sensor_snapshot/message_history.hpp"
 #include "sensor_snapshot/processing.hpp"
 
 namespace sensor_snapshot
 {
+template<typename MessageT, typename ResponseT>
+void set_source_dimensions(const MessageT & source, ResponseT & response)
+{
+  response.source_width = source.width;
+  response.source_height = source.height;
+}
+
+// IMU samples have no image/cloud dimensions. Keep common selection and age
+// validation identical while retaining dimension metadata for image/cloud errors.
+template<typename ResponseT>
+void set_source_dimensions(const sensor_msgs::msg::Imu &, ResponseT &) {}
+
 /// Snapshot the pointer and timing together; release the mutex before any processing.
 template<typename MessageT, typename ResponseT>
 std::shared_ptr<const MessageT> prepare_sample(
@@ -49,8 +62,7 @@ std::shared_ptr<const MessageT> prepare_sample(
     throw SnapshotError(Status::NO_DATA, "No sensor message has been received");
   }
   response.sequence = sample.sequence;
-  response.source_width = sample.message->width;
-  response.source_height = sample.message->height;
+  set_source_dimensions(*sample.message, response);
   response.age_seconds = std::chrono::duration<double>(
     MessageHistory<MessageT>::Clock::now() - sample.received_at).count();
   const double limit = requested_age == 0.0 ? default_age : requested_age;

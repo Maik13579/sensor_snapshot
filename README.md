@@ -1,6 +1,6 @@
 # sensor_snapshot
 
-C++ components that retain image/cloud messages by shared pointer and return
+C++ components that retain image/cloud/IMU messages by shared pointer and return
 snapshots on demand. Python clients receive only the data they request.
 The snapshot service uses the same name as its input topic.
 Node names use `snapshot_<topic>` with slashes replaced by underscores:
@@ -15,7 +15,7 @@ Point cloud only:
 ros2 launch sensor_snapshot snapshot.launch.py cloud_topic:=/camera/points history_size:=30
 ```
 
-Both components in an existing sensor container:
+Image and cloud components in an existing sensor container:
 
 ```bash
 ros2 launch sensor_snapshot snapshot.launch.py \
@@ -23,7 +23,15 @@ ros2 launch sensor_snapshot snapshot.launch.py \
   image_topic:=/camera/image_raw cloud_topic:=/camera/points
 ```
 
-Each empty topic disables its component; both default to empty. Without `container`,
+IMU only, loaded alongside its driver:
+
+```bash
+ros2 launch sensor_snapshot snapshot.launch.py \
+  container:=/imu_container imu_topic:=/imu/data_raw
+```
+
+Image, cloud and IMU topics can also be enabled together. Each empty topic disables
+its component; all default to empty. Without `container`,
 a multithreaded container is created when needed. For intra-process delivery, load
 snapshots beside the sensor and enable intra-process communication on the sensor
 as well. Publisher ownership and other subscribers can still introduce copies.
@@ -32,6 +40,7 @@ as well. Publisher ownership and other subscribers can still introduce copies.
 | --- | --- | --- |
 | `image_topic` | Empty | Image input and `GetImage` service name |
 | `cloud_topic` | Empty | Cloud input and `GetPointCloud` service name |
+| `imu_topic` | Empty | IMU input and `GetImu` service name |
 | `container` | Empty | Existing multithreaded container; empty creates one |
 | `namespace` | Empty | Component namespace |
 | `history_size` | `1` | Received frames retained per component, 1–10000 |
@@ -46,13 +55,15 @@ group from the timer/subscription callback that makes the request.
 
 ```python
 from rclpy.callback_groups import ReentrantCallbackGroup
-from sensor_snapshot_interfaces.srv import GetImage, GetPointCloud
+from sensor_snapshot_interfaces.srv import GetImage, GetPointCloud, GetImu
 
 self.snapshot_group = ReentrantCallbackGroup()
 self.image_client = self.create_client(
     GetImage, '/camera/image_raw', callback_group=self.snapshot_group)
 self.cloud_client = self.create_client(
     GetPointCloud, '/camera/points', callback_group=self.snapshot_group)
+self.imu_client = self.create_client(
+    GetImu, '/imu/data_raw', callback_group=self.snapshot_group)
 ```
 
 Run your node with a multithreaded executor:
@@ -95,7 +106,21 @@ request.downsample_factor = 2
 request.max_age_seconds = 0.5
 ```
 
-### Send either request
+### IMU request
+
+```python
+client = self.imu_client
+request = GetImu.Request()  # Latest received sample; no filtering or averaging.
+request.max_age_seconds = 0.5
+```
+
+The response's `imu` is an unchanged `sensor_msgs/Imu`: acceleration, angular
+velocity, orientation and all covariance fields retain their original values.
+An unavailable orientation (`orientation_covariance[0] == -1`) stays unavailable;
+the component does not estimate orientation, normalize acceleration or detect
+stationarity. The original acquisition timestamp and frame ID are preserved.
+
+### Send any request
 
 `rclpy` uses `client.call(...)` for a synchronous request. The other executor thread
 handles the response while your application callback waits.
@@ -114,11 +139,13 @@ if response.status.code != SnapshotStatus.OK:
     return
 ```
 
-Use `response.cloud` for a cloud request or `response.image` for an image request.
+Use `response.cloud`, `response.image` or `response.imu` for the matching request.
+Check `status` before using the payload; failed IMU requests leave it at its default
+value rather than providing a valid measurement.
 
 ### Select a historical frame
 
-Set the timestamp before sending either request:
+Set the timestamp before sending any request:
 
 ```python
 request.stamp = detection.header.stamp
@@ -151,7 +178,11 @@ Image sampling copies original pixels without interpolation. YUV cropping/sampli
 and Bayer sampling are unsupported; Bayer crops require even x/y offsets.
 CameraInfo is not returned, so account for crop origin and sampling in your geometry.
 
+IMU requests support only `stamp` and `max_age_seconds`; region, sampling, field
+selection, voxel and comparison options apply to image/cloud requests only.
+
 An empty cache returns `NO_DATA`; an expired sample returns `STALE`. `age_seconds`
 is measured since subscription receipt at selection time, separately from the sensor
 header stamp. `sequence` identifies repeated snapshots. History retains whole frames;
-service responses still incur copying and transport into Python.
+service responses still incur copying and transport into Python. IMU samples use
+the same bounded history, timestamp-selection, sequence and freshness semantics.

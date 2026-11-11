@@ -58,7 +58,7 @@ NodeSettings declare_settings(rclcpp::Node & node, const std::string & default_t
 {
   NodeSettings settings;
   settings.topic = node.declare_parameter<std::string>(
-    "input.topic", default_topic, descriptor("Raw Image or PointCloud2 input topic"));
+    "input.topic", default_topic, descriptor("Raw Image, PointCloud2 or Imu input topic"));
   const auto reliability = node.declare_parameter<std::string>(
     "input.reliability", "best_effort", descriptor("Input reliability: best_effort or reliable"));
 

@@ -25,6 +25,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/SnapshotStatus.msg"
   "srv/GetImage.srv"
   "srv/GetPointCloud.srv"
+  "srv/GetImu.srv"
   DEPENDENCIES sensor_msgs builtin_interfaces
 )
 ament_export_dependencies(rosidl_default_runtime)
