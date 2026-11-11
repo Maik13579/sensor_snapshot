@@ -1,6 +1,10 @@
 # Copyright 2026 Maik Knof
 # SPDX-License-Identifier: Apache-2.0
 import argparse
+import os
+from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 import yaml
@@ -43,3 +47,12 @@ def test_arguments_attach_completion_and_validate_numbers():
                           ('--discovery-time', '-1'), ('--truncate-length', '-1')]:
         with pytest.raises(SystemExit):
             parser.parse_args([option, value])
+
+
+def test_packaging_configuration_does_not_need_native_build_tools(tmp_path):
+    # Reproduce the GitLab pybuild configure stage with pkg-config/compilers absent.
+    package_root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        [sys.executable, 'setup.py', 'config'], cwd=package_root,
+        env=dict(os.environ, PATH=str(tmp_path)), capture_output=True, text=True, timeout=10)
+    assert result.returncode == 0, result.stderr

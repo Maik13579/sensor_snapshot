@@ -1,12 +1,12 @@
 # Copyright 2026 Maik Knof
 # SPDX-License-Identifier: Apache-2.0
-"""Image encoding and a single frozen preview; imported only for image operations."""
+"""Single frozen image preview; imported only when --show-image is requested."""
 
 import os
 
 
 def image_array(message):
-    """Convert color order for OpenCV while retaining bit depth for file export."""
+    """Interpret image layout and color order without modifying the ROS message."""
     import cv2
     from cv_bridge import CvBridge
     import numpy as np
@@ -16,7 +16,7 @@ def image_array(message):
     dtype, channels = bridge.encoding_to_dtype_with_channels(message.encoding)
     dtype = np.dtype(dtype).newbyteorder('>' if message.is_bigendian else '<')
     if not message.width or not message.height:
-        raise ValueError('Cannot export or preview an empty image')
+        raise ValueError('Cannot preview an empty image')
     if message.step < message.width * channels * dtype.itemsize:
         raise ValueError('Image step is smaller than its pixel data')
     if len(message.data) < message.height * message.step:
@@ -38,28 +38,6 @@ def image_array(message):
     elif encoding in ('rgba8', 'rgba16'):
         data = cv2.cvtColor(data, cv2.COLOR_RGBA2BGRA)
     return data
-
-
-def encode_image(message, suffix):
-    import cv2
-    import numpy as np
-
-    data = image_array(message)
-    channels = 1 if data.ndim == 2 else data.shape[2]
-    if channels not in (1, 3, 4):
-        raise ValueError(f'Cannot export an image with {channels} channels')
-    if suffix == '.png' and data.dtype not in (np.dtype('uint8'), np.dtype('uint16')):
-        raise ValueError('PNG requires uint8/uint16 pixels; use .tiff for floating-point depth')
-    if suffix in ('.tif', '.tiff'):
-        if data.dtype not in (np.dtype('uint8'), np.dtype('uint16'),
-                              np.dtype('float32'), np.dtype('float64')):
-            raise ValueError(f'TIFF export does not support {data.dtype}')
-        if data.dtype.kind == 'f' and channels != 1:
-            raise ValueError('Floating-point TIFF export supports single-channel depth only')
-    success, encoded = cv2.imencode(suffix, data)
-    if not success:
-        raise ValueError(f'Could not encode image as {suffix}')
-    return encoded.tobytes()
 
 
 def show_image(message):

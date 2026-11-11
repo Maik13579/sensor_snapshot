@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 # colcon invokes python -m pytest from the source package. Exercise the installed
-# package, including its compiled adapter, rather than shadowing it with source.
+# CLI as ros2 loads it, rather than shadowing it with source.
 source_root = Path(__file__).resolve().parents[1]
 sys.path[:] = [entry for entry in sys.path if Path(entry).resolve() != source_root]
 

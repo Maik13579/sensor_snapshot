@@ -60,16 +60,11 @@ ros2 sensor_snapshot
 ros2 sensor_snapshot /imu/data --field linear_acceleration
 ros2 sensor_snapshot /camera/image_raw --field header
 
-# Save and/or preview the same frozen image.
-ros2 sensor_snapshot /camera/image_raw --output frame.png
-ros2 sensor_snapshot /camera/image_raw --show-image --output frame.png
+# Preview one frozen image.
+ros2 sensor_snapshot /camera/image_raw --show-image
 
-# Save the returned cloud, including all its fields, as binary PCD.
-ros2 sensor_snapshot /camera/points --output cloud.pcd
-ros2 sensor_snapshot /camera/points --output cloud.pcd --request '{voxel_size: 0.05}'
-
-# Save a complete IMU measurement as YAML.
-ros2 sensor_snapshot /imu/data --output imu.yaml
+# Request a filtered cloud and print its header.
+ros2 sensor_snapshot /camera/points --field header --request '{voxel_size: 0.05}'
 
 # Inspect response metadata rather than the payload.
 ros2 sensor_snapshot /imu/data --response --field age_seconds
@@ -80,25 +75,16 @@ unrelated services are excluded. It uses the normal ROS 2 shell completion setup
 provided when sourcing the installation. Names are service names (the snapshot
 components deliberately use the same names as their input topics).
 
-Each invocation makes one request. `--field` affects only printed output, never the
-saved payload. `--output` or `--show-image` suppresses the default message dump;
-explicit `--field`/`--response` still prints. Existing files require `--force`.
-Failed requests return a nonzero exit status and do not write a file. Discovery and
-RPC waits are bounded by `--discovery-time` and `--timeout`. `--request` accepts a
-YAML mapping of any supported request fields. Echo-style output supports
-`--no-arr`, `--no-str`, `--full-length`, `--truncate-length` and `--flow-style`.
+Each invocation makes one request. `--show-image` suppresses the default message
+dump; explicit `--field`/`--response` still prints. Failed requests return a nonzero
+exit status. Discovery and RPC waits are bounded by `--discovery-time` and
+`--timeout`. `--request` accepts a YAML mapping of any supported request fields.
+Echo-style output supports `--no-arr`, `--no-str`, `--full-length`,
+`--truncate-length` and `--flow-style`.
 
-Image export supports PNG for uint8/uint16 pixels and TIFF for uint8/uint16 or
-single-channel float32/float64 depth. Color order is converted for the codec;
-floating-point depth is never silently converted to PNG. Preview requires a
-graphical display and closes with Esc, Q or the window close button.
-Non-uint8 previews are scaled for display only; saved measurements retain their
-values. There is no cloud or IMU visualization.
-
-Clouds are exported as binary PCD. Organized dimensions and every standard PointField
-(including COUNT, RGB, intensity and labels) are retained; endian differences and
-layout padding are normalized. Empty or invalid clouds are rejected. PCD/image
-files are payload exports and do not retain the complete ROS header; IMU YAML does.
+Preview requires a graphical display and closes with Esc, Q or the window close
+button. Non-uint8 images are scaled for display only. There is no cloud or IMU
+visualization.
 
 ## Python snippets
 

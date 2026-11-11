@@ -9,7 +9,6 @@ import subprocess
 import threading
 import time
 
-import cv2
 import pytest
 import rclpy
 from rclpy.context import Context
@@ -94,6 +93,7 @@ def test_installed_command_and_shell_completion_protocol(server, tmp_path):
         ['ros2', 'sensor_snapshot', '--help'], capture_output=True, text=True, timeout=10)
     assert help_result.returncode == 0, help_result.stderr
     assert '--show-image' in help_result.stdout
+    assert '--output' not in help_result.stdout and '--force' not in help_result.stdout
     result = subprocess.run(
         ['ros2', 'sensor_snapshot', '/cli_test/imu', '--field', 'linear_acceleration.z'],
         capture_output=True, text=True, timeout=10)
@@ -119,33 +119,26 @@ def test_imu_field_response_and_request_options(server, capsys):
     assert yaml.safe_load(capsys.readouterr().out) == 2
 
 
-def test_save_and_preview_use_one_response_and_field_does_not_limit_export(
-        server, tmp_path, monkeypatch, capsys):
+def test_preview_uses_one_response_and_can_print_a_field(server, monkeypatch, capsys):
     from sensor_snapshot_cli import images
     previews = []
     monkeypatch.setattr(images, 'show_image', previews.append)
-    path = tmp_path / 'frame.png'
-    assert run('/cli_test/image', '--output', path, '--show-image',
-               '--field', 'header.frame_id') == 0
+    assert run('/cli_test/image', '--show-image', '--field', 'header.frame_id') == 0
     assert server[0]['image'] == 1
     assert len(previews) == 1 and previews[0].header.frame_id == 'camera'
-    assert cv2.imread(str(path)).shape == (2, 2, 3)
     output = capsys.readouterr()
     assert yaml.safe_load(output.out) == 'camera'
-    assert 'Saved image snapshot' in output.err
+    assert output.err == ''
 
 
-def test_cloud_and_imu_export(server, tmp_path, capsys):
-    path = tmp_path / 'cloud.pcd'
-    assert run('/cli_test/points', '--output', path,
+def test_cloud_request_options_and_imu_text(server, capsys):
+    assert run('/cli_test/points', '--field', 'header.frame_id',
                '--request', '{voxel_size: 0.05, fields: [x, ring]}') == 0
-    assert b'FIELDS x ring normal wall_id' in path.read_bytes()
+    assert yaml.safe_load(capsys.readouterr().out) == 'laser'
     assert server[1]['cloud'].voxel_size == 0.05
     assert list(server[1]['cloud'].fields) == ['x', 'ring']
-    path = tmp_path / 'imu.yaml'
-    assert run('/cli_test/imu', '--output', path) == 0
-    assert yaml.safe_load(path.read_text())['linear_acceleration']['z'] == 9.81
-    assert capsys.readouterr().out == ''
+    assert run('/cli_test/imu') == 0
+    assert yaml.safe_load(capsys.readouterr().out)['linear_acceleration']['z'] == 9.81
 
 
 @pytest.mark.parametrize('arguments,error', [
@@ -158,9 +151,8 @@ def test_cloud_and_imu_export(server, tmp_path, capsys):
     (['/cli_test/imu', '--request', '{missing: 1}'], 'Invalid snapshot request'),
     (['--request', '[]'], 'YAML mapping'),
 ])
-def test_failures_are_nonzero_and_never_create_output(server, tmp_path, capsys, arguments, error):
-    path = tmp_path / ('out.yaml' if any(name in arguments for name in
-                                       ('/cli_test/imu', '/cli_test/slow')) else 'out.png')
-    assert run(*arguments, '--output', path) == 1
-    assert error in capsys.readouterr().err
-    assert not path.exists()
+def test_failures_are_nonzero(server, capsys, arguments, error):
+    assert run(*arguments) == 1
+    result = capsys.readouterr()
+    assert error in result.err
+    assert result.out == ''
