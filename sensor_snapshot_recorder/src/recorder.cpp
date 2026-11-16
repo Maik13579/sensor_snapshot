@@ -163,10 +163,11 @@ void SnapshotRecorder::received(uint64_t capture, size_t index,
   }
 }
 
-void SnapshotRecorder::finish(bool success, const std::string & message)
+void SnapshotRecorder::finish(bool success, std::string message)
 {
   const auto header = active_->header;
   for (auto & endpoint : endpoints_) {if (endpoint) {endpoint->cancel();}}
+  // Own the reply text before clearing the capture: callers may pass active_->errors.
   active_.reset();
   reply(header, success, message);
 }

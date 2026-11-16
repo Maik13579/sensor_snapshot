@@ -31,7 +31,7 @@ private:
   void trigger(const std::shared_ptr<rmw_request_id_t> & header);
   void received(uint64_t capture, size_t index,
     std::shared_ptr<rclcpp::SerializedMessage> message, const std::string & error);
-  void finish(bool success, const std::string & message);
+  void finish(bool success, std::string message);
   void reply(const std::shared_ptr<rmw_request_id_t> &, bool, const std::string &);
 
   std::vector<std::string> topics_;

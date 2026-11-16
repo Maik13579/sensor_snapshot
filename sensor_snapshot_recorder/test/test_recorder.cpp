@@ -70,7 +70,7 @@ TEST_F(Recorder, FailedResponseDoesNotWriteAPartialKeyframe)
 {
   providers();bad_ = true;start(options());
   const auto failed = capture();EXPECT_FALSE(failed->success);
-  EXPECT_NE(failed->message.find("stale IMU"), std::string::npos);
+  EXPECT_EQ(failed->message, ns_ + "/imu: status 2: stale IMU; ");
   bad_ = false;ASSERT_TRUE(capture()->success);
   close();EXPECT_EQ(messages().size(), 3u);
 }

@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>sensor_snapshot_cli</name>
-  <version>0.3.0</version>
+  <version>0.3.1</version>
   <description>ROS 2 CLI for discovering, inspecting, recording and previewing sensor snapshots.</description>
   <maintainer email="maik.knof@gmx.de">Maik Knof</maintainer>
   <license>Apache-2.0</license>
