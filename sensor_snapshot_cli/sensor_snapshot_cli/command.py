@@ -29,12 +29,17 @@ def nonnegative_integer(value):
 
 
 class SensorSnapshotCommand(CommandExtension):
-    """Discover, inspect or preview one image, point-cloud or IMU snapshot."""
+    """Discover, inspect, preview or record image, point-cloud and IMU snapshots."""
 
     def add_arguments(self, parser, cli_name, *, argv=None):
+        from . import record
+        if record.selected(argv):
+            return record.add_arguments(parser, positive_seconds)
+        parser.set_defaults(record_mode=False)
+        parser.epilog = 'Use ros2 sensor_snapshot record --help for triggered bag recording.'
         argument = parser.add_argument(
             'service', nargs='?', help='Snapshot service/topic name; omit to list available snapshots')
-        argument.completer = SnapshotNameCompleter()
+        argument.completer = SnapshotNameCompleter(include_record=True)
         parser.add_argument('--field', help='Print a payload field, using dots for nested fields')
         parser.add_argument('--response', action='store_true',
                             help='Print the full service response, including status/sequence/age')
@@ -55,6 +60,9 @@ class SensorSnapshotCommand(CommandExtension):
 
     def main(self, *, parser, args):
         try:
+            if args.record_mode:
+                from .record import run
+                return run(args)
             return self.run(args)
         except KeyboardInterrupt:
             return 130

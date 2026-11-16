@@ -6,7 +6,7 @@ package_name = 'sensor_snapshot_cli'
 
 setup(
     name=package_name,
-    version='0.2.0',
+    version='0.3.0',
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
@@ -16,7 +16,7 @@ setup(
     zip_safe=False,
     maintainer='Maik Knof',
     maintainer_email='maik.knof@gmx.de',
-    description='Discover, inspect and preview sensor snapshots from ros2.',
+    description='Discover, inspect, record and preview sensor snapshots from ros2.',
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={

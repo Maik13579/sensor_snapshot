@@ -86,6 +86,72 @@ Preview requires a graphical display and closes with Esc, Q or the window close
 button. Non-uint8 images are scaled for display only. There is no cloud or IMU
 visualization.
 
+## Triggered bag recording
+
+Record latest snapshots from the listed topics into one bag:
+
+```bash
+ros2 sensor_snapshot record /velodyne/points /imu/data -o keyframes
+```
+
+Press **Space** to capture one keyframe. **Ctrl+C** stops recording and finalizes
+the bag. Topic arguments have tab completion for available snapshot services.
+`-o` chooses the bag directory and `-s` chooses the storage format (default: MCAP).
+Existing bag directories are rejected. With no `-o`, a new name is generated.
+
+The command also accepts a ROS parameter YAML file:
+
+```bash
+ros2 sensor_snapshot record recorder.yaml
+ros2 sensor_snapshot record --params-file recorder.yaml
+```
+
+For example:
+
+```yaml
+/**:
+  ros__parameters:
+    input.topics: [/velodyne/points, /imu/data]
+    output.uri: keyframes
+    requests:
+      /velodyne/points:
+        voxel_size: 0.05
+        fields: [x, y, z]
+        max_age_seconds: 0.5
+      /imu/data:
+        max_age_seconds: 0.5
+```
+
+Command-line topics and bag options override their YAML equivalents. Request
+options live under `requests.<fully-qualified-topic>`. They are prepared once
+when the service's typed client is created and reused for each trigger. Images
+support `region`, `downsample_factor` and `max_age_seconds`. Clouds also support
+`fields`, `voxel_size` and named `filters` blocks; the example configuration shows
+how to express field comparisons. IMU requests support `max_age_seconds`.
+
+The recorder discovers services matching each topic and one of `GetImage`,
+`GetPointCloud` or `GetImu`. Every trigger sends all requests asynchronously.
+The returned sensor messages are stored on the original topic names, with
+unchanged headers and acquisition timestamps. All messages from that trigger
+share the recorder's ROS time at receipt of the trigger as their bag timestamp.
+
+All configured topics are required. A missing service, unsuccessful response or
+request timeout rejects that capture before writing its messages. A second
+trigger while a capture is in progress is rejected. A storage write error stops
+further captures; it can leave a partial capture in the bag.
+
+The recorder can also run without the CLI:
+
+```bash
+ros2 launch sensor_snapshot_recorder recorder.launch.py params_file:=/path/to/recorder.yaml
+ros2 service call /sensor_snapshot_recorder/trigger std_srvs/srv/Trigger '{}'
+```
+
+The component is `sensor_snapshot_recorder::SnapshotRecorder`; its private
+`~/trigger` service uses `std_srvs/srv/Trigger`. This service remains available
+when keyboard controls are disabled with `--disable-keyboard-controls` or when
+standard input is not a terminal. Stop or unload the component to close its bag.
+
 ## Python snippets
 
 Create the clients once in your node's `__init__`. Keep them in a separate callback

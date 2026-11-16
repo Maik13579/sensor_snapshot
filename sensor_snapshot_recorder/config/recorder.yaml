@@ -1,0 +1,20 @@
+/**:
+  ros__parameters:
+    input.topics: [/velodyne/points, /imu/data]
+    output.uri: keyframes
+    output.storage_id: mcap
+    capture.timeout_seconds: 5.0
+    discovery.period_seconds: 1.0
+    requests:
+      /velodyne/points:
+        voxel_size: 0.05
+        fields: [x, y, z]
+        max_age_seconds: 0.5
+        # Optional point-field filters; every named filter must pass.
+        # filters:
+        #   minimum_height:
+        #     field: z
+        #     comparison: GREATER_OR_EQUAL
+        #     value: 0.2
+      /imu/data:
+        max_age_seconds: 0.5
