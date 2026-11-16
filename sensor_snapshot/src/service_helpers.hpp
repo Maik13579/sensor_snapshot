@@ -21,6 +21,7 @@
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
 #include <sensor_snapshot_interfaces/msg/snapshot_status.hpp>
 #include "sensor_snapshot/message_history.hpp"
 #include "sensor_snapshot/processing.hpp"
@@ -34,10 +35,13 @@ void set_source_dimensions(const MessageT & source, ResponseT & response)
   response.source_height = source.height;
 }
 
-// IMU samples have no image/cloud dimensions. Keep common selection and age
+// IMU samples and laser scans have no image/cloud dimensions. Keep common selection and age
 // validation identical while retaining dimension metadata for image/cloud errors.
 template<typename ResponseT>
 void set_source_dimensions(const sensor_msgs::msg::Imu &, ResponseT &) {}
+
+template<typename ResponseT>
+void set_source_dimensions(const sensor_msgs::msg::LaserScan &, ResponseT &) {}
 
 /// Snapshot the pointer and timing together; release the mutex before any processing.
 template<typename MessageT, typename ResponseT>

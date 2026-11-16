@@ -29,6 +29,7 @@
 #include "sensor_snapshot/image_snapshot.hpp"
 #include "sensor_snapshot/point_cloud_snapshot.hpp"
 #include "sensor_snapshot/imu_snapshot.hpp"
+#include "sensor_snapshot/laser_scan_snapshot.hpp"
 
 namespace sensor_snapshot_test
 {
@@ -51,12 +52,14 @@ protected:
     image_ = std::make_shared<sensor_snapshot::ImageSnapshot>(options);
     cloud_ = std::make_shared<sensor_snapshot::PointCloudSnapshot>(options);
     imu_ = std::make_shared<sensor_snapshot::ImuSnapshot>(options);
+    scan_ = std::make_shared<sensor_snapshot::LaserScanSnapshot>(options);
     executor_ = std::make_unique<rclcpp::executors::MultiThreadedExecutor>(
       rclcpp::ExecutorOptions(), 4);
     executor_->add_node(helper_);
     executor_->add_node(image_);
     executor_->add_node(cloud_);
     executor_->add_node(imu_);
+    executor_->add_node(scan_);
     thread_ = std::thread([this]() {executor_->spin();});
   }
 
@@ -74,6 +77,7 @@ protected:
     image_.reset();
     cloud_.reset();
     imu_.reset();
+    scan_.reset();
   }
 
   template<typename ServiceT>
@@ -131,6 +135,7 @@ protected:
   std::shared_ptr<sensor_snapshot::ImageSnapshot> remapped_image_;
   std::shared_ptr<sensor_snapshot::PointCloudSnapshot> cloud_;
   std::shared_ptr<sensor_snapshot::ImuSnapshot> imu_;
+  std::shared_ptr<sensor_snapshot::LaserScanSnapshot> scan_;
   std::vector<std::shared_ptr<rclcpp::Node>> additional_nodes_;
   std::unique_ptr<rclcpp::executors::MultiThreadedExecutor> executor_;
   std::thread thread_;

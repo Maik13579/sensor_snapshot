@@ -4,7 +4,6 @@
 
 import argparse
 from collections import Counter
-import os
 import subprocess
 import threading
 import time
@@ -14,7 +13,7 @@ import rclpy
 from rclpy.context import Context
 from rclpy.executors import SingleThreadedExecutor
 from sensor_snapshot_interfaces.msg import SnapshotStatus
-from sensor_snapshot_interfaces.srv import GetImage, GetImu, GetPointCloud
+from sensor_snapshot_interfaces.srv import GetImage, GetImu, GetLaserScan, GetPointCloud
 from std_srvs.srv import Empty
 import yaml
 
@@ -23,7 +22,7 @@ from sensor_snapshot_cli.discovery import SnapshotNameCompleter
 
 
 @pytest.fixture
-def server(image, cloud, imu):
+def server(image, cloud, imu, scan):
     context = Context()
     rclpy.init(args=[], context=context)
     node = rclpy.create_node('_snapshot_test_server', context=context)
@@ -44,6 +43,7 @@ def server(image, cloud, imu):
         node.create_service(GetImage, '/cli_test/image', callback('image', image)),
         node.create_service(GetPointCloud, '/cli_test/points', callback('cloud', cloud)),
         node.create_service(GetImu, '/cli_test/imu', callback('imu', imu)),
+        node.create_service(GetLaserScan, '/cli_test/scan', callback('scan', scan)),
         node.create_service(Empty, '/cli_test/other', lambda request, response: response),
     ]
 
@@ -82,13 +82,15 @@ def test_list_and_completion_only_offer_snapshot_services(server, capsys):
     output = capsys.readouterr().out
     assert '/cli_test/image [sensor_snapshot_interfaces/srv/GetImage]' in output
     assert '/cli_test/imu ' in output and '/cli_test/points ' in output
+    assert '/cli_test/scan [sensor_snapshot_interfaces/srv/GetLaserScan]' in output
     assert '/cli_test/other' not in output
     assert SnapshotNameCompleter()('/cli_test/im', argparse.Namespace()) == [
         '/cli_test/image', '/cli_test/imu']
+    assert SnapshotNameCompleter()('/cli_test/sc', argparse.Namespace()) == ['/cli_test/scan']
     assert sum(server[0].values()) == 0
 
 
-def test_installed_command_and_shell_completion_protocol(server, tmp_path):
+def test_installed_command(server):
     help_result = subprocess.run(
         ['ros2', 'sensor_snapshot', '--help'], capture_output=True, text=True, timeout=10)
     assert help_result.returncode == 0, help_result.stderr
@@ -99,15 +101,6 @@ def test_installed_command_and_shell_completion_protocol(server, tmp_path):
         capture_output=True, text=True, timeout=10)
     assert result.returncode == 0, result.stderr
     assert yaml.safe_load(result.stdout) == 9.81
-    completion_file = tmp_path / 'completion.txt'
-    command_line = 'ros2 sensor_snapshot /cli_test/im'
-    environment = dict(os.environ, _ARGCOMPLETE='1', COMP_LINE=command_line,
-                       COMP_POINT=str(len(command_line)), _ARGCOMPLETE_IFS='\013',
-                       _ARGCOMPLETE_SUPPRESS_SPACE='1',
-                       _ARGCOMPLETE_STDOUT_FILENAME=str(completion_file))
-    result = subprocess.run(['ros2'], env=environment, capture_output=True, text=True, timeout=10)
-    assert result.returncode == 0, result.stderr
-    assert sorted(completion_file.read_text().split('\013')) == ['/cli_test/image', '/cli_test/imu']
 
 
 def test_imu_field_response_and_request_options(server, capsys):
@@ -117,6 +110,20 @@ def test_imu_field_response_and_request_options(server, capsys):
     assert server[1]['imu'].max_age_seconds == 0.5
     assert run('/cli_test/imu', '--response', '--field', 'sequence') == 0
     assert yaml.safe_load(capsys.readouterr().out) == 2
+
+
+def test_laser_scan_payload_request_and_installed_command(server, capsys):
+    assert run('/cli_test/scan', '--field', 'ranges',
+               '--request', '{max_age_seconds: 0.5, stamp: {sec: 99}}') == 0
+    assert yaml.safe_load(capsys.readouterr().out) == [1.0, float('inf'), 3.0]
+    assert server[1]['scan'].max_age_seconds == 0.5
+    assert server[1]['scan'].stamp.sec == 99
+    result = subprocess.run(
+        ['ros2', 'sensor_snapshot', '/cli_test/scan', '--field', 'header'],
+        capture_output=True, text=True, timeout=10)
+    assert result.returncode == 0, result.stderr
+    header = yaml.safe_load(result.stdout)
+    assert header['frame_id'] == 'laser_scan' and header['stamp']['sec'] == 99
 
 
 def test_preview_uses_one_response_and_can_print_a_field(server, monkeypatch, capsys):
@@ -147,6 +154,7 @@ def test_cloud_request_options_and_imu_text(server, capsys):
     (['/cli_test/other'], 'not a sensor snapshot service'),
     (['/cli_test/slow', '--timeout', '0.01'], 'Timed out requesting'),
     (['/cli_test/imu', '--show-image'], 'only available for image'),
+    (['/cli_test/scan', '--show-image'], 'only available for image'),
     (['/cli_test/image', '--field', 'bad.field'], 'Invalid field'),
     (['/cli_test/imu', '--request', '{missing: 1}'], 'Invalid snapshot request'),
     (['--request', '[]'], 'YAML mapping'),

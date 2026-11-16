@@ -1,0 +1,16 @@
+# Copyright 2026 Maik Knof
+# SPDX-License-Identifier: Apache-2.0
+
+# Zero selects the latest received sample. Otherwise select the closest sensor
+# header stamp within the retained timestamp range (ties prefer newest receipt).
+builtin_interfaces/Time stamp
+# Maximum time since reception; zero uses cache.max_age_seconds (zero = unlimited).
+float64 max_age_seconds
+---
+sensor_snapshot_interfaces/SnapshotStatus status
+# Local sequence increases on receipt. Zero means no sample was selected.
+uint64 sequence
+float64 age_seconds
+# Unchanged scan, including angular/timing metadata, ranges and intensities.
+# Default-initialized on failure; check status before using it.
+sensor_msgs/LaserScan scan

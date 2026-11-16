@@ -43,6 +43,7 @@ TEST_F(Components, NamesFollowTopicsWhenLoadingMultipleInstances)
   EXPECT_STREQ(image_->get_name(), "snapshot_image");
   EXPECT_STREQ(cloud_->get_name(), "snapshot_points");
   EXPECT_STREQ(imu_->get_name(), "snapshot_imu");
+  EXPECT_STREQ(scan_->get_name(), "snapshot_scan");
   for (const auto & prefix : {"front", "rear"}) {
     const auto topic = std::string(prefix) + "/points";
     rclcpp::NodeOptions options;

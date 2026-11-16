@@ -68,6 +68,13 @@ GetImu::Request::SharedPtr imu_request(rclcpp::Node & node, const std::string & 
   return request;
 }
 
+GetLaserScan::Request::SharedPtr scan_request(rclcpp::Node & node, const std::string & topic)
+{
+  auto request = std::make_shared<GetLaserScan::Request>();
+  request->max_age_seconds = nonnegative(node, "requests." + topic + ".max_age_seconds");
+  return request;
+}
+
 GetPointCloud::Request::SharedPtr cloud_request(rclcpp::Node & node, const std::string & topic)
 {
   using Filter = sensor_snapshot_interfaces::msg::FieldFilter;

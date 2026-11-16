@@ -11,6 +11,7 @@ SERVICE_PAYLOADS = {
     'sensor_snapshot_interfaces/srv/GetImage': 'image',
     'sensor_snapshot_interfaces/srv/GetPointCloud': 'cloud',
     'sensor_snapshot_interfaces/srv/GetImu': 'imu',
+    'sensor_snapshot_interfaces/srv/GetLaserScan': 'scan',
 }
 
 

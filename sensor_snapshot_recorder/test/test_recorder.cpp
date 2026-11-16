@@ -23,6 +23,7 @@ TEST_F(Recorder, ParallelRequestsKeepHeadersAndUseTheTriggerClockForEveryBagReco
   opts.append_parameter_override("capture.timeout_seconds", 3.0);
   opts.append_parameter_override("requests." + ns_ + "/cloud.voxel_size", 0.05);
   opts.append_parameter_override("requests." + ns_ + "/cloud.fields", std::vector<std::string>{"x"});
+  opts.append_parameter_override("requests." + ns_ + "/scan.max_age_seconds", 0.75);
   start(opts);
   auto clock = helper_->create_publisher<rosgraph_msgs::msg::Clock>("/clock", 10);
   ASSERT_TRUE(until([&] {return clock->get_subscription_count() != 0;}));
@@ -32,7 +33,7 @@ TEST_F(Recorder, ParallelRequestsKeepHeadersAndUseTheTriggerClockForEveryBagReco
   auto first = trigger();
   // None of the providers responds until every request arrived. This proves the
   // recorder does not sequentially wait for a service, even on one executor thread.
-  ASSERT_TRUE(until([&] {return seen_ == 3;}));
+  ASSERT_TRUE(until([&] {return seen_ == 4;}));
   tick.clock.sec = 999;clock->publish(tick);
   ASSERT_TRUE(until([&] {return recorder_->now().seconds() > 900;}));
   release();
@@ -40,8 +41,9 @@ TEST_F(Recorder, ParallelRequestsKeepHeadersAndUseTheTriggerClockForEveryBagReco
   ASSERT_TRUE(first.get()->success);
   EXPECT_DOUBLE_EQ(voxel_seen_, 0.05);
   EXPECT_EQ(fields_seen_, std::vector<std::string>{"x"});
+  EXPECT_DOUBLE_EQ(scan_age_seen_, 0.75);
   close();
-  const auto records = messages();ASSERT_EQ(records.size(), 3u);
+  const auto records = messages();ASSERT_EQ(records.size(), 4u);
   for (const auto & message : records) {EXPECT_EQ(bag_stamp(*message, 0), 123000000456LL);}
   const auto image = decode<sensor_msgs::msg::Image>(records[0]);
   EXPECT_EQ(image.header.stamp.sec, 11);EXPECT_EQ(image.header.frame_id, "camera");
@@ -51,6 +53,11 @@ TEST_F(Recorder, ParallelRequestsKeepHeadersAndUseTheTriggerClockForEveryBagReco
   const auto imu = decode<sensor_msgs::msg::Imu>(records[2]);
   EXPECT_EQ(imu.header.stamp.sec, 33);EXPECT_DOUBLE_EQ(imu.linear_acceleration.z, 9.81);
   EXPECT_DOUBLE_EQ(imu.orientation_covariance[0], -1.0);
+  const auto scan = decode<sensor_msgs::msg::LaserScan>(records[3]);
+  EXPECT_EQ(scan.header.stamp.sec, 44);EXPECT_EQ(scan.header.frame_id, "scan_laser");
+  EXPECT_FLOAT_EQ(scan.angle_increment, 0.5f);EXPECT_FLOAT_EQ(scan.time_increment, 0.001f);
+  EXPECT_EQ(scan.ranges, (std::vector<float>{1.0f, 2.0f, 3.0f}));
+  EXPECT_EQ(scan.intensities, (std::vector<float>{4.0f, 5.0f, 6.0f}));
 }
 
 TEST_F(Recorder, RepeatedTriggersAppendFramesWithCachedRequestOptions)
@@ -60,10 +67,10 @@ TEST_F(Recorder, RepeatedTriggersAppendFramesWithCachedRequestOptions)
   opts.append_parameter_override("requests." + ns_ + "/cloud.voxel_size", 0.05);
   start(opts);
   ASSERT_TRUE(capture()->success);ASSERT_TRUE(capture()->success);
-  EXPECT_EQ(seen_, 6u);EXPECT_DOUBLE_EQ(voxel_seen_, 0.05);
+  EXPECT_EQ(seen_, 8u);EXPECT_DOUBLE_EQ(voxel_seen_, 0.05);
   EXPECT_FALSE(recorder_->set_parameter(
     rclcpp::Parameter("requests." + ns_ + "/cloud.voxel_size", 0.1)).successful);
-  close();EXPECT_EQ(messages().size(), 6u);
+  close();EXPECT_EQ(messages().size(), 8u);
 }
 
 TEST_F(Recorder, FailedResponseDoesNotWriteAPartialKeyframe)
@@ -72,20 +79,20 @@ TEST_F(Recorder, FailedResponseDoesNotWriteAPartialKeyframe)
   const auto failed = capture();EXPECT_FALSE(failed->success);
   EXPECT_EQ(failed->message, ns_ + "/imu: status 2: stale IMU; ");
   bad_ = false;ASSERT_TRUE(capture()->success);
-  close();EXPECT_EQ(messages().size(), 3u);
+  close();EXPECT_EQ(messages().size(), 4u);
 }
 
 TEST_F(Recorder, TimeoutRejectsOverlapCleansPendingCallsAndDiscardsLateReplies)
 {
   providers();hold_ = true;start(options());
-  auto first = trigger();ASSERT_TRUE(until([&] {return seen_ == 3;}));
+  auto first = trigger();ASSERT_TRUE(until([&] {return seen_ == 4;}));
   const auto overlapping = capture();EXPECT_FALSE(overlapping->success);
   EXPECT_NE(overlapping->message.find("already in progress"), std::string::npos);
   ASSERT_EQ(first.wait_for(3s), std::future_status::ready);
   EXPECT_FALSE(first.get()->success);
   release();hold_ = false;
   ASSERT_TRUE(capture()->success);
-  close();EXPECT_EQ(messages().size(), 3u);
+  close();EXPECT_EQ(messages().size(), 4u);
 }
 
 TEST_F(Recorder, MissingServiceDoesNotRequestOrWriteOtherTopics)
@@ -102,7 +109,7 @@ TEST_F(Recorder, ServicesCanAppearAfterRecorderStartup)
   providers();
   Trigger::Response::SharedPtr result;
   ASSERT_TRUE(until([&] {result = capture();return result->success;}));
-  close();EXPECT_EQ(messages().size(), 3u);
+  close();EXPECT_EQ(messages().size(), 4u);
 }
 
 TEST_F(Recorder, RequestOptionsIncludeImageRegionsAndNamedCloudFilters)

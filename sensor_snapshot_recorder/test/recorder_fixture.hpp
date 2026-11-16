@@ -14,6 +14,7 @@
 #include <rosbag2_cpp/reader.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/imu.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include "sensor_snapshot_recorder/recorder.hpp"
 #include "request_options.hpp"
@@ -108,10 +109,21 @@ protected:
         response.imu.linear_acceleration.z = 9.81;
         response.imu.orientation_covariance[0] = -1;
       });
+    provider<GetLaserScan>("scan", [this](const auto & request, auto & response) {
+        scan_age_seen_ = request.max_age_seconds;
+        response.scan.header.stamp.sec = 44;
+        response.scan.header.frame_id = "scan_laser";
+        response.scan.angle_min = -0.5f;response.scan.angle_max = 0.5f;
+        response.scan.angle_increment = 0.5f;response.scan.time_increment = 0.001f;
+        response.scan.scan_time = 0.1f;response.scan.range_min = 0.2f;
+        response.scan.range_max = 30.0f;
+        response.scan.ranges = {1.0f, 2.0f, 3.0f};
+        response.scan.intensities = {4.0f, 5.0f, 6.0f};
+      });
   }
   rclcpp::NodeOptions options(std::vector<std::string> topics = {})
   {
-    if (topics.empty()) {topics = {ns_ + "/image", ns_ + "/cloud", ns_ + "/imu"};}
+    if (topics.empty()) {topics = {ns_ + "/image", ns_ + "/cloud", ns_ + "/imu", ns_ + "/scan"};}
     rclcpp::NodeOptions result;
     result.arguments({"--ros-args", "-r", "__ns:=" + ns_});
     result.append_parameter_override("input.topics", topics);
@@ -171,8 +183,8 @@ protected:
   std::vector<std::function<void()>> queued_;
   std::atomic<size_t> seen_{0};
   std::atomic<bool> hold_{false}, bad_{false};
-  size_t expected_{3};
-  double voxel_seen_{0};
+  size_t expected_{4};
+  double voxel_seen_{0}, scan_age_seen_{0};
   std::vector<std::string> fields_seen_;
 };
 }  // namespace sensor_snapshot_recorder_test

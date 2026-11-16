@@ -29,7 +29,7 @@ def nonnegative_integer(value):
 
 
 class SensorSnapshotCommand(CommandExtension):
-    """Discover, inspect, preview or record image, point-cloud and IMU snapshots."""
+    """Discover, inspect, preview or record image, point-cloud, IMU and laser scan snapshots."""
 
     def add_arguments(self, parser, cli_name, *, argv=None):
         from . import record

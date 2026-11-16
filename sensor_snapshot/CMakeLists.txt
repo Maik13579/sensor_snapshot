@@ -32,6 +32,7 @@ add_library(${PROJECT_NAME} SHARED
   src/image_snapshot.cpp
   src/point_cloud_snapshot.cpp
   src/imu_snapshot.cpp
+  src/laser_scan_snapshot.cpp
 )
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
 target_include_directories(${PROJECT_NAME} PUBLIC
@@ -53,6 +54,7 @@ rclcpp_components_register_nodes(${PROJECT_NAME}
   "sensor_snapshot::ImageSnapshot"
   "sensor_snapshot::PointCloudSnapshot"
   "sensor_snapshot::ImuSnapshot"
+  "sensor_snapshot::LaserScanSnapshot"
 )
 install(TARGETS ${PROJECT_NAME} EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
@@ -67,7 +69,8 @@ if(BUILD_TESTING)
   target_link_libraries(test_history ${PROJECT_NAME})
   ament_add_gtest(test_sampling test/test_sampling.cpp)
   target_link_libraries(test_sampling ${PROJECT_NAME})
-  ament_add_gtest(test_components test/test_components.cpp test/test_imu.cpp TIMEOUT 90)
+  ament_add_gtest(test_components
+    test/test_components.cpp test/test_imu.cpp test/test_laser_scan.cpp TIMEOUT 90)
   target_link_libraries(test_components ${PROJECT_NAME})
 endif()
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)

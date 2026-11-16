@@ -26,6 +26,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/GetImage.srv"
   "srv/GetPointCloud.srv"
   "srv/GetImu.srv"
+  "srv/GetLaserScan.srv"
   DEPENDENCIES sensor_msgs builtin_interfaces
 )
 ament_export_dependencies(rosidl_default_runtime)

@@ -7,6 +7,7 @@
 #include <sensor_snapshot_interfaces/msg/snapshot_status.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/imu.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
 namespace sensor_snapshot_recorder
@@ -64,12 +65,13 @@ private:
 };
 const std::string image_type = "sensor_snapshot_interfaces/srv/GetImage";
 const std::string imu_type = "sensor_snapshot_interfaces/srv/GetImu";
+const std::string scan_type = "sensor_snapshot_interfaces/srv/GetLaserScan";
 const std::string cloud_type = "sensor_snapshot_interfaces/srv/GetPointCloud";
 }  // namespace
 
 bool supported_service(const std::string & type)
 {
-  return type == image_type || type == imu_type || type == cloud_type;
+  return type == image_type || type == imu_type || type == cloud_type || type == scan_type;
 }
 
 std::shared_ptr<Endpoint> make_endpoint(rclcpp::Node & node, const std::string & topic,
@@ -82,6 +84,10 @@ std::shared_ptr<Endpoint> make_endpoint(rclcpp::Node & node, const std::string &
   if (type == imu_type) {
     return std::make_shared<TypedEndpoint<GetImu, sensor_msgs::msg::Imu>>(
       node, topic, imu_request(node, topic), &GetImu::Response::imu, type, group);
+  }
+  if (type == scan_type) {
+    return std::make_shared<TypedEndpoint<GetLaserScan, sensor_msgs::msg::LaserScan>>(
+      node, topic, scan_request(node, topic), &GetLaserScan::Response::scan, type, group);
   }
   return std::make_shared<TypedEndpoint<GetPointCloud, sensor_msgs::msg::PointCloud2>>(
     node, topic, cloud_request(node, topic), &GetPointCloud::Response::cloud, type, group);

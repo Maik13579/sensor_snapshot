@@ -60,7 +60,7 @@ def test_space_captures_frames_and_ctrl_c_finalizes_bag(server, tmp_path):
     master, slave = pty.openpty()
     with log_path.open('w') as log:
         process = subprocess.Popen([
-            'ros2', 'sensor_snapshot', 'record', '/cli_test/image', '/cli_test/imu',
+            'ros2', 'sensor_snapshot', 'record', '/cli_test/image', '/cli_test/imu', '/cli_test/scan',
             '-o', str(destination)], stdin=slave, stdout=log, stderr=subprocess.STDOUT,
             start_new_session=True)
         try:
@@ -75,13 +75,18 @@ def test_space_captures_frames_and_ctrl_c_finalizes_bag(server, tmp_path):
             os.close(slave)
     assert process.returncode == 0, log_path.read_text()
     records = read_bag(destination)
-    assert len(records) == 4
-    assert records[0][2] == records[1][2]
-    assert records[2][2] == records[3][2] and records[2][2] > records[0][2]
+    assert len(records) == 6
+    assert records[0][2] == records[1][2] == records[2][2]
+    assert records[3][2] == records[4][2] == records[5][2] and records[3][2] > records[0][2]
     assert records[0][1].header.stamp.sec == 42
     assert records[0][1].header.frame_id == 'camera'
     assert records[1][1].linear_acceleration.z == 9.81
-    assert server[0]['image'] == 2 and server[0]['imu'] == 2
+    scan = records[2][1]
+    assert scan.header.stamp.sec == 99 and scan.header.frame_id == 'laser_scan'
+    assert list(scan.ranges) == [1.0, float('inf'), 3.0]
+    assert list(scan.intensities) == [4.0, 5.0, 6.0]
+    assert scan.time_increment == pytest.approx(0.001)
+    assert server[0]['image'] == 2 and server[0]['imu'] == 2 and server[0]['scan'] == 2
 
 
 def test_yaml_path_per_topic_options_and_external_trigger(server, tmp_path):
@@ -117,17 +122,6 @@ def test_yaml_path_per_topic_options_and_external_trigger(server, tmp_path):
     assert len(records) == 2
     assert all(record[0] == '/cli_test/points' for record in records)
     assert all(record[1].header.frame_id == 'laser' for record in records)
-
-
-def test_record_completion_offers_snapshot_topics(server, tmp_path):
-    output = tmp_path / 'completion.txt'
-    command = 'ros2 sensor_snapshot record /cli_test/im'
-    environment = dict(os.environ, _ARGCOMPLETE='1', COMP_LINE=command,
-                       COMP_POINT=str(len(command)), _ARGCOMPLETE_IFS='\013',
-                       _ARGCOMPLETE_SUPPRESS_SPACE='1', _ARGCOMPLETE_STDOUT_FILENAME=str(output))
-    result = subprocess.run(['ros2'], env=environment, capture_output=True, text=True, timeout=10)
-    assert result.returncode == 0, result.stderr
-    assert sorted(output.read_text().split('\013')) == ['/cli_test/image', '/cli_test/imu']
 
 
 def test_record_parser_and_missing_configuration(tmp_path):

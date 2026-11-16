@@ -12,7 +12,7 @@ source_root = Path(__file__).resolve().parents[1]
 sys.path[:] = [entry for entry in sys.path if Path(entry).resolve() != source_root]
 
 import pytest
-from sensor_msgs.msg import Image, Imu, PointCloud2, PointField
+from sensor_msgs.msg import Image, Imu, LaserScan, PointCloud2, PointField
 
 
 @pytest.fixture
@@ -51,4 +51,14 @@ def imu():
     message.header.frame_id = 'imu_link'
     message.linear_acceleration.z = 9.81
     message.orientation_covariance[0] = -1.0
+    return message
+
+
+@pytest.fixture
+def scan():
+    message = LaserScan(angle_min=-0.5, angle_max=0.5, angle_increment=0.5,
+                        time_increment=0.001, scan_time=0.1, range_min=0.2, range_max=30.0,
+                        ranges=[1.0, float('inf'), 3.0], intensities=[4.0, 5.0, 6.0])
+    message.header.frame_id = 'laser_scan'
+    message.header.stamp.sec = 99
     return message
