@@ -163,9 +163,11 @@ void SnapshotRecorder::received(uint64_t capture, size_t index,
     // All replies are validated and serialized before the first write. Original
     // headers are inside these buffers and are never changed by the recorder.
     for (size_t i = 0; i < topics_.size(); ++i) {
-      // The const-reference overload exists in older Humble releases too and
-      // copies storage for the writer, preserving the original for observers.
-      writer_->write(*active_->messages[i], topics_[i], endpoints_[i]->message_type(), active_->stamp);
+      // Older Humble writers consume mutable buffers; newer writers accept
+      // const shared pointers. Give either API its own copy so notifications
+      // retain the original payload even after the writer closes.
+      auto bag_message = std::make_shared<rclcpp::SerializedMessage>(*active_->messages[i]);
+      writer_->write(bag_message, topics_[i], endpoints_[i]->message_type(), active_->stamp);
       recorded_types_[topics_[i]] = endpoints_[i]->message_type();
     }
   } catch (const std::exception & error) {
