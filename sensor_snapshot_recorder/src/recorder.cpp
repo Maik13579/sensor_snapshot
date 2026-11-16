@@ -163,7 +163,10 @@ void SnapshotRecorder::received(uint64_t capture, size_t index,
     // All replies are validated and serialized before the first write. Original
     // headers are inside these buffers and are never changed by the recorder.
     for (size_t i = 0; i < topics_.size(); ++i) {
-      writer_->write(active_->messages[i], topics_[i], endpoints_[i]->message_type(), active_->stamp);
+      // Humble's mutable overload consumes the buffer. The const overload keeps
+      // shared ownership, including for capture observers after the writer closes.
+      std::shared_ptr<const rclcpp::SerializedMessage> data = active_->messages[i];
+      writer_->write(data, topics_[i], endpoints_[i]->message_type(), active_->stamp);
       recorded_types_[topics_[i]] = endpoints_[i]->message_type();
     }
   } catch (const std::exception & error) {

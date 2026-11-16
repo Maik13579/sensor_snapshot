@@ -147,6 +147,10 @@ TEST_F(Recorder, CaptureNotificationRetainsRecordedPayloadsAfterStop)
   ASSERT_TRUE(capture()->success);
   ASSERT_EQ(notified.wait_for(3s), std::future_status::ready);
   const auto frame = notified.get();ASSERT_EQ(frame.messages.size(), 4u);
+  for (const auto & message : frame.messages) {
+    ASSERT_GT(message.data->size(), 0u);
+    EXPECT_GT(message.data->capacity(), 0u);
+  }
   auto stop = helper_->create_client<Trigger>("sensor_snapshot_recorder/stop");
   ASSERT_TRUE(stop->wait_for_service(3s));
   auto stopped = stop->async_send_request(std::make_shared<Trigger::Request>());
