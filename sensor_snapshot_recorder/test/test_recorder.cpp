@@ -1,6 +1,7 @@
 // Copyright 2026 Maik Knof
 // SPDX-License-Identifier: Apache-2.0
 #include "recorder_fixture.hpp"
+#include <rclcpp/serialization.hpp>
 #include <rosgraph_msgs/msg/clock.hpp>
 
 namespace sensor_snapshot_recorder_test

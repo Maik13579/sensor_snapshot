@@ -3,6 +3,7 @@
 #include "endpoint.hpp"
 #include "request_options.hpp"
 #include <optional>
+#include <rclcpp/serialization.hpp>
 #include <sensor_snapshot_interfaces/msg/snapshot_status.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/imu.hpp>
