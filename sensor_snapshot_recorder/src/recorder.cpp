@@ -59,8 +59,12 @@ SnapshotRecorder::SnapshotRecorder(const rclcpp::NodeOptions & options)
     [this](std::shared_ptr<rmw_request_id_t> header, std::shared_ptr<Trigger::Request>) {
       trigger(header);
     }, service_qos(), group_);
+  stop_service_ = create_service<Trigger>("~/stop",
+    [this](std::shared_ptr<rmw_request_id_t> header, std::shared_ptr<Trigger::Request>) {
+      stop(header);
+    }, service_qos(), group_);
   discovery_timer_ = create_wall_timer(std::chrono::duration<double>(discovery),
-    [this] {if (!active_) {refresh_clients();}}, group_);
+    [this] {if (!active_ && !stopping_ && !stopped_) {refresh_clients();}}, group_);
   timeout_timer_ = create_wall_timer(std::chrono::milliseconds(20), [this] {
       if (active_ && std::chrono::steady_clock::now() >= active_->deadline) {
         finish(false, "Snapshot request timed out; no messages from this trigger were written");
@@ -76,6 +80,11 @@ SnapshotRecorder::~SnapshotRecorder()
   for (auto & endpoint : endpoints_) {if (endpoint) {endpoint->cancel();}}
   try {if (writer_) {writer_->close();}}
   catch (const std::exception & error) {RCLCPP_ERROR(get_logger(), "Bag close failed: %s", error.what());}
+}
+
+void SnapshotRecorder::set_capture_callback(std::function<void(RecordedFrame)> callback)
+{
+  capture_callback_ = std::move(callback);
 }
 
 void SnapshotRecorder::refresh_clients()
@@ -109,6 +118,7 @@ void SnapshotRecorder::refresh_clients()
 void SnapshotRecorder::trigger(const std::shared_ptr<rmw_request_id_t> & header)
 {
   const auto stamp = now();  // The same recorder-side ROS time is used for every bag record.
+  if (stopping_ || stopped_) {reply(header, false, "Recording has stopped");return;}
   if (active_) {reply(header, false, "A capture is already in progress");return;}
   if (storage_failed_) {reply(header, false, "Recording stopped after a bag write error");return;}
   refresh_clients();
@@ -156,11 +166,22 @@ void SnapshotRecorder::received(uint64_t capture, size_t index,
       writer_->write(active_->messages[i], topics_[i], endpoints_[i]->message_type(), active_->stamp);
       recorded_types_[topics_[i]] = endpoints_[i]->message_type();
     }
-    finish(true, "Recorded keyframe " + std::to_string(capture) + " (" + std::to_string(topics_.size()) + " topics)");
   } catch (const std::exception & error) {
     storage_failed_ = true;  // Storage failures can leave a partial write; never retry silently.
     finish(false, std::string("Bag write failed; recording stopped: ") + error.what());
+    return;
   }
+  if (capture_callback_) {
+    RecordedFrame frame{capture, active_->stamp, {}};
+    for (size_t i = 0; i < topics_.size(); ++i) {
+      frame.messages.push_back({topics_[i], endpoints_[i]->message_type(), active_->messages[i]});
+    }
+    try {capture_callback_(std::move(frame));}
+    catch (const std::exception & error) {
+      RCLCPP_ERROR(get_logger(), "Capture recorded, but its notification failed: %s", error.what());
+    }
+  }
+  finish(true, "Recorded keyframe " + std::to_string(capture) + " (" + std::to_string(topics_.size()) + " topics)");
 }
 
 void SnapshotRecorder::finish(bool success, std::string message)
@@ -170,6 +191,37 @@ void SnapshotRecorder::finish(bool success, std::string message)
   // Own the reply text before clearing the capture: callers may pass active_->errors.
   active_.reset();
   reply(header, success, message);
+  if (stopping_) {finish_stop();}
+}
+
+void SnapshotRecorder::stop(const std::shared_ptr<rmw_request_id_t> & header)
+{
+  if (stopping_) {
+    Trigger::Response response;response.message = "Stop already in progress";
+    stop_service_->send_response(*header, response);
+    return;
+  }
+  stop_header_ = header;
+  stopping_ = true;
+  // A capture already in flight is completed (or times out) before closing.
+  if (!active_) {finish_stop();}
+}
+
+void SnapshotRecorder::finish_stop()
+{
+  Trigger::Response response;
+  try {
+    if (writer_) {writer_->close();writer_.reset();}
+    stopped_ = true;
+    response.success = true;response.message = "Recording stopped and bag finalized";
+  } catch (const std::exception & error) {response.message = error.what();}
+  discovery_timer_->cancel();timeout_timer_->cancel();
+  stopping_ = false;
+  // A failed close must still prevent writes through a potentially closed writer.
+  stopped_ = true;
+  const auto header = std::move(stop_header_);
+  try {stop_service_->send_response(*header, response);}
+  catch (const std::exception & error) {RCLCPP_WARN(get_logger(), "Stop reply failed: %s", error.what());}
 }
 
 void SnapshotRecorder::reply(const std::shared_ptr<rmw_request_id_t> & header,

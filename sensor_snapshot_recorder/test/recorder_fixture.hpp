@@ -132,9 +132,10 @@ protected:
     result.append_parameter_override("discovery.period_seconds", 0.02);
     return result;
   }
-  void start(const rclcpp::NodeOptions & opts)
+  void start(const rclcpp::NodeOptions & opts, std::function<void(RecordedFrame)> callback = {})
   {
     recorder_ = std::make_shared<SnapshotRecorder>(opts);
+    recorder_->set_capture_callback(std::move(callback));
     executor_->add_node(recorder_);
     client_ = helper_->create_client<Trigger>("sensor_snapshot_recorder/trigger");
     thread_ = std::thread([this] {executor_->spin();});

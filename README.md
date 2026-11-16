@@ -160,6 +160,12 @@ The component is `sensor_snapshot_recorder::SnapshotRecorder`; its private
 when keyboard controls are disabled with `--disable-keyboard-controls` or when
 standard input is not a terminal. Stop or unload the component to close its bag.
 
+`~/stop` (`std_srvs/srv/Trigger`) finishes any active capture, closes the bag, and
+rejects further triggers. Repeated stop requests after closure are harmless.
+C++ owners can register `set_capture_callback()` before spinning to receive each
+successfully recorded batch, including its bag timestamp and immutable serialized
+payloads. The callback runs before the trigger response and should return quickly.
+
 ## Python snippets
 
 Create the clients once in your node's `__init__`. Keep them in a separate callback

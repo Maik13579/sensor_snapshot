@@ -138,4 +138,48 @@ TEST_F(Recorder, InvalidConfigurationAndExistingOutputAreRejected)
   std::filesystem::create_directories(directory_);
   EXPECT_THROW(std::make_shared<SnapshotRecorder>(options()), std::invalid_argument);
 }
+
+TEST_F(Recorder, CaptureNotificationRetainsRecordedPayloadsAfterStop)
+{
+  providers();std::promise<RecordedFrame> notification;
+  auto notified = notification.get_future();
+  start(options(), [&notification](RecordedFrame frame) {notification.set_value(std::move(frame));});
+  ASSERT_TRUE(capture()->success);
+  ASSERT_EQ(notified.wait_for(3s), std::future_status::ready);
+  const auto frame = notified.get();ASSERT_EQ(frame.messages.size(), 4u);
+  auto stop = helper_->create_client<Trigger>("sensor_snapshot_recorder/stop");
+  ASSERT_TRUE(stop->wait_for_service(3s));
+  auto stopped = stop->async_send_request(std::make_shared<Trigger::Request>());
+  ASSERT_EQ(stopped.wait_for(3s), std::future_status::ready);EXPECT_TRUE(stopped.get()->success);
+  EXPECT_TRUE(std::filesystem::exists(directory_ / "metadata.yaml"));
+  EXPECT_FALSE(capture()->success);
+  close();
+  sensor_msgs::msg::Imu imu;
+  rclcpp::Serialization<sensor_msgs::msg::Imu>().deserialize_message(frame.messages[2].data.get(), &imu);
+  EXPECT_DOUBLE_EQ(imu.linear_acceleration.z, 9.81);
+  EXPECT_EQ(frame.messages[2].topic, ns_ + "/imu");
+  EXPECT_EQ(messages().size(), 4u);
+}
+
+TEST_F(Recorder, StopWaitsForPendingCaptureBeforeClosingTheWriter)
+{
+  providers();hold_ = true;start(options());
+  auto capture = trigger();ASSERT_TRUE(until([this] {return seen_ == 4;}));
+  auto stop = helper_->create_client<Trigger>("sensor_snapshot_recorder/stop");
+  ASSERT_TRUE(stop->wait_for_service(3s));
+  auto stopped = stop->async_send_request(std::make_shared<Trigger::Request>());
+  EXPECT_EQ(stopped.wait_for(20ms), std::future_status::timeout);
+  release();
+  ASSERT_EQ(capture.wait_for(3s), std::future_status::ready);EXPECT_TRUE(capture.get()->success);
+  ASSERT_EQ(stopped.wait_for(3s), std::future_status::ready);EXPECT_TRUE(stopped.get()->success);
+  EXPECT_FALSE(this->capture()->success);
+  close();EXPECT_EQ(messages().size(), 4u);
+}
+
+TEST_F(Recorder, FailedCaptureDoesNotSendNotification)
+{
+  providers();bad_ = true;std::atomic<unsigned> notified{0};
+  start(options(), [&notified](RecordedFrame) {++notified;});
+  EXPECT_FALSE(capture()->success);EXPECT_EQ(notified, 0u);
+}
 }  // namespace sensor_snapshot_recorder_test
