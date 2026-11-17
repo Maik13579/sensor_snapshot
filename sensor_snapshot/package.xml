@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>sensor_snapshot</name>
-  <version>0.4.0</version>
+  <version>0.4.1</version>
   <description>C++ components for caching images, point clouds, IMU data and laser scans and serving snapshots on demand.</description>
   <maintainer email="maik.knof@gmx.de">Maik Knof</maintainer>
   <license>Apache-2.0</license>
