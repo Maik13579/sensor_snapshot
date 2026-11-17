@@ -115,3 +115,51 @@ def test_unload_parser_completion_and_default_interactive_mode(monkeypatch):
     assert calls == [{'unload': True}]
     with pytest.raises(ValueError, match='chooses its own'):
         unload.run(parser.parse_args(['unload', '-i', '/image']))
+
+
+def test_unload_all_discovers_and_removes_every_snapshot(graph, monkeypatch):
+    snapshot(graph, '/first/image', '/first', '/first_snapshot')
+    snapshot(graph, '/second/image', '/second', '/second_snapshot')
+
+    @contextmanager
+    def context():
+        yield graph, graph
+
+    monkeypatch.setattr(unload, 'snapshot_node', context)
+    parser = argparse.ArgumentParser()
+    SensorSnapshotCommand().add_arguments(parser, 'ros2 sensor_snapshot')
+    assert unload.run(parser.parse_args(['unload', '-a'])) == 0
+    assert '/first/image' not in graph.services and '/second/image' not in graph.services
+    assert len(requests(graph)) == 2
+    assert graph.members['/first'] == graph.members['/second'] == ['/sensor_driver']
+    with pytest.raises(ValueError, match='cannot be combined'):
+        unload.run(parser.parse_args(['unload', '--all', '/first/image']))
+    with pytest.raises(SystemExit):
+        parser.parse_args(['unload', '-a', '-i'])
+
+
+def test_unload_all_without_snapshots_logs_a_skip(graph, monkeypatch, capsys):
+    @contextmanager
+    def context():
+        yield graph, graph
+
+    monkeypatch.setattr(unload, 'snapshot_node', context)
+    parser = argparse.ArgumentParser()
+    SensorSnapshotCommand().add_arguments(parser, 'ros2 sensor_snapshot')
+    assert unload.run(parser.parse_args(['unload', '--all'])) == 0
+    assert '[SKIP] all: no snapshot services found' in capsys.readouterr().out
+    assert not requests(graph)
+
+
+def test_unload_all_discovery_uses_the_same_global_deadline(graph, monkeypatch):
+    graph.services['/unmanaged'] = ['sensor_snapshot_interfaces/srv/GetImage']
+
+    @contextmanager
+    def context():
+        yield graph, graph
+
+    monkeypatch.setattr(unload, 'snapshot_node', context)
+    parser = argparse.ArgumentParser()
+    SensorSnapshotCommand().add_arguments(parser, 'ros2 sensor_snapshot')
+    assert unload.run(parser.parse_args(['unload', '-a', '--timeout', '3'])) == 1
+    assert graph.now == pytest.approx(3)

@@ -15,6 +15,7 @@ provide the services used by these commands.
 | `ros2 sensor_snapshot load TOPIC ...` | Load snapshot components onto sensor topics |
 | `ros2 sensor_snapshot load` | Choose topics and containers interactively |
 | `ros2 sensor_snapshot unload TOPIC ...` | Unload existing snapshot components |
+| `ros2 sensor_snapshot unload -a` | Unload all discovered snapshots |
 | `ros2 sensor_snapshot unload` | Choose existing snapshots to unload interactively |
 | `ros2 sensor_snapshot record TOPIC ...` | Record triggered snapshot batches |
 
@@ -89,6 +90,7 @@ container. Discovery handles sensors that start later within the timeout.
 
 ```bash
 ros2 sensor_snapshot unload /camera/image_raw /scan
+ros2 sensor_snapshot unload -a
 ros2 sensor_snapshot unload /scan /missing --timeout 15 --ignore-errors
 ros2 sensor_snapshot unload
 ```
@@ -97,6 +99,11 @@ The topic arguments complete to existing snapshot services. The unloader finds
 the component that actually provides each service and unloads it by its container
 ID. Custom node names are supported. The sensor driver and its container remain
 running; no publisher is needed to remove an existing snapshot.
+
+`-a` / `--all` discovers all existing snapshot services and unloads their
+components. It cannot be combined with topic arguments or `-i`. An empty
+selection is logged and succeeds. Discovery consumes part of the same global
+timeout as unloading.
 
 One global `--timeout` (default: 15 seconds) covers service discovery, component
 ownership lookup, unloading and confirmation that the services have disappeared.

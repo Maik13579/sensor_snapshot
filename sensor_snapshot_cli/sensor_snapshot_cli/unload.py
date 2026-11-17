@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import time
 
 from .composition import ContainerIndex, service_components, unload_component
-from .discovery import SERVICE_PAYLOADS, SnapshotNameCompleter, snapshot_node
+from .discovery import discover, SERVICE_PAYLOADS, SnapshotNameCompleter, snapshot_node
 from .load import log, normalize, TopicError
 
 
@@ -14,8 +14,11 @@ def add_arguments(parser, positive_seconds):
     topics = parser.add_argument('topics', nargs='*', metavar='TOPIC',
                                  help='Existing snapshots to unload')
     topics.completer = SnapshotNameCompleter()
-    parser.add_argument('-i', '--interactive', action='store_true',
-                        help='Choose existing snapshots using numbered menus')
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument('-i', '--interactive', action='store_true',
+                       help='Choose existing snapshots using numbered menus')
+    modes.add_argument('-a', '--all', dest='all_snapshots', action='store_true',
+                       help='Unload all discovered snapshot components')
     parser.add_argument('--timeout', type=positive_seconds, default=15.0,
                         help='Global timeout for the whole batch (default: 15 seconds)')
     parser.add_argument('--ignore-errors', action='store_true',
@@ -143,7 +146,9 @@ class Unloader:
 
 
 def run(args):
-    interactive_mode = args.interactive or not args.topics
+    if args.all_snapshots and args.topics:
+        raise ValueError('--all cannot be combined with topic arguments')
+    interactive_mode = args.interactive or (not args.topics and not args.all_snapshots)
     if args.interactive and args.topics:
         raise ValueError('Interactive mode chooses its own topics')
     try:
@@ -151,7 +156,16 @@ def run(args):
             if interactive_mode:
                 from .interactive import run as interactive_run
                 return interactive_run(node, executor, args.timeout, unload=True)
-            topics = [normalize(node, name) for name in args.topics]
-            return Unloader(node, executor, topics, args.timeout, args.ignore_errors).run()
+            timeout = args.timeout
+            if args.all_snapshots:
+                deadline = time.monotonic() + timeout
+                topics = [name for name, _ in discover(node, executor, min(1.0, timeout))]
+                if not topics:
+                    log('SKIP', 'all', 'no snapshot services found')
+                    return 0
+                timeout = max(0.0, deadline - time.monotonic())
+            else:
+                topics = [normalize(node, name) for name in args.topics]
+            return Unloader(node, executor, topics, timeout, args.ignore_errors).run()
     except TopicError:
         return 1
