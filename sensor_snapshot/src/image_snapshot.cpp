@@ -28,8 +28,9 @@ ImageSnapshot::ImageSnapshot(const rclcpp::NodeOptions & options)
   const auto settings = declare_settings(*this, "image");
   default_max_age_seconds_ = settings.max_age_seconds;
   cache_.set_capacity(settings.history_size);
-  subscription_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-  service_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  auto groups = snapshot_callback_groups(*this);
+  subscription_group_ = groups.first;
+  service_group_ = groups.second;
   rclcpp::SubscriptionOptions subscription_options;
   subscription_options.callback_group = subscription_group_;
   subscription_ = create_subscription<sensor_msgs::msg::Image>(

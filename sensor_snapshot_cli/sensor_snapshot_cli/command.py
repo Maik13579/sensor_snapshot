@@ -34,6 +34,7 @@ class SensorSnapshotCommand(CommandExtension):
     def add_arguments(self, parser, cli_name, *, argv=None):
         from . import load, record, unload
         self._parser = parser
+        parser.epilog = 'Project: https://github.com/Maik13579/sensor_snapshot'
         commands = parser.add_subparsers(dest='operation', metavar='{get,list,load,unload,record}')
         get_parser = commands.add_parser('get', help='Request one snapshot from a topic')
         self.add_get_arguments(get_parser)

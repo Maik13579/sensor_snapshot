@@ -63,7 +63,9 @@ def test_no_subcommand_prints_help_without_using_ros(monkeypatch, capsys):
     extension = SensorSnapshotCommand()
     extension.add_arguments(parser, 'ros2 sensor_snapshot')
     assert extension.main(parser=parser, args=parser.parse_args([])) == 0
-    assert '{get,list,load,unload,record}' in capsys.readouterr().out
+    help_text = capsys.readouterr().out
+    assert '{get,list,load,unload,record}' in help_text
+    assert 'https://github.com/Maik13579/sensor_snapshot' in help_text
     for arguments in (['get'], ['/imu']):
         with pytest.raises(SystemExit):
             parser.parse_args(arguments)

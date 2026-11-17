@@ -20,6 +20,11 @@ for request fields, processing behavior and Python client examples.
 | `sensor_msgs/msg/Imu` | `sensor_snapshot::ImuSnapshot` |
 | `sensor_msgs/msg/LaserScan` | `sensor_snapshot::LaserScanSnapshot` |
 
+On Humble, subscriptions and snapshot services share the node's default mutually
+exclusive callback group to avoid custom callback-group teardown races during
+component unloading. Snapshot processing therefore serializes with cache updates.
+Jazzy and newer releases use separate subscription and service callback groups.
+
 ## Launch
 
 Point cloud only:

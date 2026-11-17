@@ -54,6 +54,22 @@ std::string snapshot_node_name(
   return "snapshot_" + name;
 }
 
+std::pair<rclcpp::CallbackGroup::SharedPtr, rclcpp::CallbackGroup::SharedPtr>
+snapshot_callback_groups(rclcpp::Node & node)
+{
+#if RCLCPP_VERSION_MAJOR < 28
+  // Humble's executor can still be waiting on a custom group's guard when a
+  // component is unloaded. The default group's lifetime follows NodeBase,
+  // which the executor retains while dispatching work.
+  auto group = node.get_node_base_interface()->get_default_callback_group();
+  return {group, group};
+#else
+  return {
+    node.create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive),
+    node.create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive)};
+#endif
+}
+
 NodeSettings declare_settings(rclcpp::Node & node, const std::string & default_topic)
 {
   NodeSettings settings;

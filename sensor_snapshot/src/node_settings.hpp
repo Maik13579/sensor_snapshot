@@ -18,6 +18,7 @@
 
 #include <cstddef>
 #include <string>
+#include <utility>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/version.h>
 
@@ -43,6 +44,10 @@ inline const auto & service_qos_argument(const rclcpp::QoS & qos)
 }
 
 NodeSettings declare_settings(rclcpp::Node & node, const std::string & default_topic);
+
+/// Humble needs node-owned callback groups to keep wait-set guards alive during unload.
+std::pair<rclcpp::CallbackGroup::SharedPtr, rclcpp::CallbackGroup::SharedPtr>
+snapshot_callback_groups(rclcpp::Node & node);
 
 /// Component-manager parameter overrides are available before the Node constructor.
 std::string snapshot_node_name(
