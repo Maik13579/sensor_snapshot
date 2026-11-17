@@ -26,7 +26,8 @@ def container(tmp_path):
     name = f'snapshot_cli_test_{os.getpid()}'
     prefix = Path(get_package_prefix('rclcpp_components'))
     executable = prefix / 'lib/rclcpp_components/component_container_mt'
-    with (tmp_path / 'container.log').open('w') as log:
+    log_path = tmp_path / 'container.log'
+    with log_path.open('w') as log:
         process = subprocess.Popen([str(executable), '--ros-args', '-r', f'__node:={name}'],
                                    stdout=log, stderr=subprocess.STDOUT)
         try:
@@ -35,6 +36,7 @@ def container(tmp_path):
                 assert client.wait_for_service(timeout_sec=10)
             yield f'/{name}', process
         finally:
+            before_shutdown = process.poll()
             if process.poll() is None:
                 process.send_signal(signal.SIGINT)
             try:
@@ -42,12 +44,15 @@ def container(tmp_path):
             except subprocess.TimeoutExpired:
                 process.kill()
                 process.wait()
+            # Pytest includes captured teardown output when a test fails.
+            print(f'Container exit code before teardown: {before_shutdown}')
+            print('Container log:\n' + '\n'.join(log_path.read_text().splitlines()[-100:]))
 
 
 def call(node, executor, kind, service, request):
     client = node.create_client(kind, service)
     try:
-        assert client.wait_for_service(timeout_sec=5)
+        assert client.wait_for_service(timeout_sec=5), f'Service unavailable: {service}'
         future = client.call_async(request)
         executor.spin_until_future_complete(future, timeout_sec=10)
         assert future.done()
@@ -103,6 +108,7 @@ def test_installed_loader_discovers_real_publisher_container_and_leaves_it_runni
                              capture_output=True, text=True, timeout=10)
     assert removed.returncode == 0, removed.stdout + removed.stderr
     assert '[UNLOADED]' in removed.stdout
+    assert process.poll() is None, 'Container exited after unloading the snapshot'
     assert members(name) == [f'{name}/synthetic_camera']
     assert process.poll() is None
 
