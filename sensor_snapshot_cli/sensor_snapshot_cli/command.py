@@ -1,6 +1,6 @@
 # Copyright 2026 Maik Knof
 # SPDX-License-Identifier: Apache-2.0
-"""ros2 sensor_snapshot: discover, inspect and preview a single cached sample."""
+"""Explicit get, list, load, unload and record subcommands for sensor snapshots."""
 
 import argparse
 import math
@@ -29,17 +29,32 @@ def nonnegative_integer(value):
 
 
 class SensorSnapshotCommand(CommandExtension):
-    """Discover, inspect, preview or record image, point-cloud, IMU and laser scan snapshots."""
+    """Load, unload, discover, inspect, preview or record sensor snapshots."""
 
     def add_arguments(self, parser, cli_name, *, argv=None):
-        from . import record
-        if record.selected(argv):
-            return record.add_arguments(parser, positive_seconds)
-        parser.set_defaults(record_mode=False)
-        parser.epilog = 'Use ros2 sensor_snapshot record --help for triggered bag recording.'
+        from . import load, record, unload
+        self._parser = parser
+        commands = parser.add_subparsers(dest='operation', metavar='{get,list,load,unload,record}')
+        get_parser = commands.add_parser('get', help='Request one snapshot from a topic')
+        self.add_get_arguments(get_parser)
+        list_parser = commands.add_parser('list', help='List available snapshot services')
+        list_parser.add_argument('--discovery-time', type=positive_seconds, default=1.0,
+                                 help='Maximum discovery time (default: 1 second)')
+        list_parser.add_argument('--show-container', action='store_true',
+                                 help='Group snapshots by container and show component IDs')
+        list_parser.add_argument('--timeout', type=positive_seconds, default=5.0,
+                                 help='Maximum container lookup time (default: 5 seconds)')
+        load.add_arguments(commands.add_parser('load', help='Load snapshot components'),
+                           positive_seconds)
+        unload.add_arguments(commands.add_parser('unload', help='Unload existing snapshots'),
+                             positive_seconds)
+        record.add_arguments(commands.add_parser('record', help='Record triggered snapshots'),
+                             positive_seconds)
+
+    def add_get_arguments(self, parser):
         argument = parser.add_argument(
-            'service', nargs='?', help='Snapshot service/topic name; omit to list available snapshots')
-        argument.completer = SnapshotNameCompleter(include_record=True)
+            'service', metavar='TOPIC', help='Snapshot service/topic name')
+        argument.completer = SnapshotNameCompleter()
         parser.add_argument('--field', help='Print a payload field, using dots for nested fields')
         parser.add_argument('--response', action='store_true',
                             help='Print the full service response, including status/sequence/age')
@@ -53,36 +68,45 @@ class SensorSnapshotCommand(CommandExtension):
         parser.add_argument('--full-length', '-f', action='store_true',
                             help='Print complete arrays and strings')
         parser.add_argument('--truncate-length', '-l', type=nonnegative_integer, default=128,
-                            help='Maximum printed array/string length; 0 is unlimited (default: 128)')
-        parser.add_argument('--no-arr', action='store_true', help='Abbreviate array fields in printed messages')
-        parser.add_argument('--no-str', action='store_true', help='Abbreviate string fields in printed messages')
-        parser.add_argument('--flow-style', action='store_true', help='Print YAML collections inline')
+                            help='Printed array/string limit; 0 is unlimited (default: 128)')
+        parser.add_argument('--no-arr', action='store_true',
+                            help='Abbreviate array fields in printed messages')
+        parser.add_argument('--no-str', action='store_true',
+                            help='Abbreviate string fields in printed messages')
+        parser.add_argument('--flow-style', action='store_true',
+                            help='Print YAML collections inline')
 
     def main(self, *, parser, args):
         try:
-            if args.record_mode:
+            if args.operation is None:
+                self._parser.print_help()
+                return 0
+            if args.operation == 'load':
+                from .load import run
+                return run(args)
+            if args.operation == 'record':
                 from .record import run
                 return run(args)
-            return self.run(args)
+            if args.operation == 'unload':
+                from .unload import run
+                return run(args)
+            if args.operation == 'list':
+                from .listing import run
+                return run(args)
+            return self.get_snapshot(args)
         except KeyboardInterrupt:
             return 130
         except Exception as error:
             print(f'sensor_snapshot: {error}', file=sys.stderr)
             return 1
 
-    def run(self, args):
+    def get_snapshot(self, args):
         import yaml
 
         values = yaml.safe_load(args.request)
         if not isinstance(values, dict):
             raise ValueError('--request must be a YAML mapping')
-        if not args.service and (args.field or args.show_image or args.response or values):
-            raise ValueError('A snapshot service name is required for these options')
         with snapshot_node() as (node, executor):
-            if not args.service:
-                for name, types in discover(node, executor, args.discovery_time):
-                    print(f'{name} [{", ".join(types)}]')
-                return 0
             from rclpy.expand_topic_name import expand_topic_name
 
             name = expand_topic_name(args.service, node.get_name(), node.get_namespace())

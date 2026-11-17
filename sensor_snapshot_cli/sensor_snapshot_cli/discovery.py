@@ -104,16 +104,11 @@ def request_snapshot(node, executor, service, service_type, values, timeout):
 class SnapshotNameCompleter:
     """argcomplete hook: complete service names matching the snapshot protocols."""
 
-    def __init__(self, include_record=False):
-        self.include_record = include_record
-
     def __call__(self, prefix, parsed_args, **kwargs):
         try:
             with snapshot_node() as (node, executor):
                 services = discover(node, executor, timeout=0.5)
             names = [name for name, _ in services]
-            if self.include_record:
-                names.append('record')
             return [name for name in names if name.startswith(prefix)]
         except (Exception, KeyboardInterrupt):
             # Completion must never print exceptions into an interactive shell.

@@ -41,12 +41,32 @@ def test_discovery_filters_types_and_sorts():
 def test_arguments_attach_completion_and_validate_numbers():
     parser = argparse.ArgumentParser()
     SensorSnapshotCommand().add_arguments(parser, 'ros2 sensor_snapshot')
-    action = next(action for action in parser._actions if action.dest == 'service')
+    commands = next(action for action in parser._actions
+                    if isinstance(action, argparse._SubParsersAction))
+    assert set(commands.choices) == {'get', 'list', 'load', 'unload', 'record'}
+    action = next(action for action in commands.choices['get']._actions if action.dest == 'service')
     assert isinstance(action.completer, SnapshotNameCompleter)
     for option, value in [('--timeout', 'nan'), ('--timeout', '0'),
                           ('--discovery-time', '-1'), ('--truncate-length', '-1')]:
         with pytest.raises(SystemExit):
-            parser.parse_args([option, value])
+            parser.parse_args(['get', '/imu', option, value])
+
+
+def test_no_subcommand_prints_help_without_using_ros(monkeypatch, capsys):
+    from sensor_snapshot_cli import command
+
+    def unexpected_ros():
+        raise AssertionError('Help must not initialize ROS')
+
+    monkeypatch.setattr(command, 'snapshot_node', unexpected_ros)
+    parser = argparse.ArgumentParser()
+    extension = SensorSnapshotCommand()
+    extension.add_arguments(parser, 'ros2 sensor_snapshot')
+    assert extension.main(parser=parser, args=parser.parse_args([])) == 0
+    assert '{get,list,load,unload,record}' in capsys.readouterr().out
+    for arguments in (['get'], ['/imu']):
+        with pytest.raises(SystemExit):
+            parser.parse_args(arguments)
 
 
 def test_packaging_configuration_does_not_need_native_build_tools(tmp_path):

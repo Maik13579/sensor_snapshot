@@ -15,19 +15,7 @@ import tty
 from .discovery import SnapshotNameCompleter, snapshot_node
 
 
-def selected(argv):
-    arguments = list(sys.argv[1:] if argv is None else argv)
-    if os.environ.get('_ARGCOMPLETE'):
-        from argcomplete import split_line
-        arguments = split_line(os.environ['COMP_LINE'])[3][1:]
-    if 'sensor_snapshot' in arguments:
-        arguments = arguments[arguments.index('sensor_snapshot') + 1:]
-    return bool(arguments and arguments[0] == 'record')
-
-
 def add_arguments(parser, positive_seconds):
-    parser.set_defaults(record_mode=True)
-    parser.add_argument('operation', choices=['record'])
     topics = parser.add_argument('topics', nargs='*', metavar='TOPIC_OR_YAML',
                                 help='Snapshot topics, or a recorder YAML parameter file')
     topics.completer = SnapshotNameCompleter()

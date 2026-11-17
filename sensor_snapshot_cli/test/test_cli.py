@@ -73,12 +73,16 @@ def run(*arguments):
     command = SensorSnapshotCommand()
     parser = argparse.ArgumentParser()
     command.add_arguments(parser, 'ros2 sensor_snapshot')
-    args = parser.parse_args(['--discovery-time', '1.5', '--timeout', '1', *map(str, arguments)])
+    if arguments and arguments[0] == 'list':
+        values = ['list', '--discovery-time', '1.5', *map(str, arguments[1:])]
+    else:
+        values = ['get', '--discovery-time', '1.5', '--timeout', '1', *map(str, arguments)]
+    args = parser.parse_args(values)
     return command.main(parser=parser, args=args)
 
 
 def test_list_and_completion_only_offer_snapshot_services(server, capsys):
-    assert run() == 0
+    assert run('list') == 0
     output = capsys.readouterr().out
     assert '/cli_test/image [sensor_snapshot_interfaces/srv/GetImage]' in output
     assert '/cli_test/imu ' in output and '/cli_test/points ' in output
@@ -94,10 +98,16 @@ def test_installed_command(server):
     help_result = subprocess.run(
         ['ros2', 'sensor_snapshot', '--help'], capture_output=True, text=True, timeout=10)
     assert help_result.returncode == 0, help_result.stderr
-    assert '--show-image' in help_result.stdout
+    assert '{get,list,load,unload,record}' in help_result.stdout
     assert '--output' not in help_result.stdout and '--force' not in help_result.stdout
+    bare = subprocess.run(['ros2', 'sensor_snapshot'],
+                          capture_output=True, text=True, timeout=10)
+    assert bare.returncode == 0 and bare.stdout == help_result.stdout
+    get_help = subprocess.run(['ros2', 'sensor_snapshot', 'get', '--help'],
+                              capture_output=True, text=True, timeout=10)
+    assert get_help.returncode == 0 and '--show-image' in get_help.stdout
     result = subprocess.run(
-        ['ros2', 'sensor_snapshot', '/cli_test/imu', '--field', 'linear_acceleration.z'],
+        ['ros2', 'sensor_snapshot', 'get', '/cli_test/imu', '--field', 'linear_acceleration.z'],
         capture_output=True, text=True, timeout=10)
     assert result.returncode == 0, result.stderr
     assert yaml.safe_load(result.stdout) == 9.81
@@ -119,7 +129,7 @@ def test_laser_scan_payload_request_and_installed_command(server, capsys):
     assert server[1]['scan'].max_age_seconds == 0.5
     assert server[1]['scan'].stamp.sec == 99
     result = subprocess.run(
-        ['ros2', 'sensor_snapshot', '/cli_test/scan', '--field', 'header'],
+        ['ros2', 'sensor_snapshot', 'get', '/cli_test/scan', '--field', 'header'],
         capture_output=True, text=True, timeout=10)
     assert result.returncode == 0, result.stderr
     header = yaml.safe_load(result.stdout)
@@ -157,7 +167,7 @@ def test_cloud_request_options_and_imu_text(server, capsys):
     (['/cli_test/scan', '--show-image'], 'only available for image'),
     (['/cli_test/image', '--field', 'bad.field'], 'Invalid field'),
     (['/cli_test/imu', '--request', '{missing: 1}'], 'Invalid snapshot request'),
-    (['--request', '[]'], 'YAML mapping'),
+    (['/cli_test/imu', '--request', '[]'], 'YAML mapping'),
 ])
 def test_failures_are_nonzero(server, capsys, arguments, error):
     assert run(*arguments) == 1
